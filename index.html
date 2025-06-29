@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pips Mafia - Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="terminal-container">
+        <header class="terminal-header">
+            <h1>THE PIPS MAFIA AI TERMINAL</h1>
+            <div class="header-info">
+                <span id="time-date"></span>
+                <span>Status Koneksi: <span id="connection-status" class="disconnected">●</span></span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="left-panel">
+                <div id="news-feed" class="terminal-widget">
+                    <div class="widget-header">BERITA INTERNASIONAL TERKINI</div>
+                    <div class="widget-content" id="news-content">
+                        <!-- Berita akan dimuat di sini oleh script.js -->
+                        <p>Memuat berita...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div id="market-data" class="terminal-widget">
+                    <div class="widget-header">DATA PASAR REAL-TIME</div>
+                    <div class="market-nav">
+                        <button class="nav-btn active" data-market="crypto">KRIPTO</button>
+                        <button class="nav-btn" data-market="forex">FOREX</button>
+                        <button class="nav-btn" data-market="stocks">SAHAM</button>
+                    </div>
+                    <div class="widget-content" id="market-content">
+                        <!-- Harga akan dimuat di sini -->
+                        <p>Pilih kategori pasar untuk melihat data...</p>
+                    </div>
+                </div>
+                <div id="chart-analysis" class="terminal-widget">
+                     <div class="widget-header">ANALISIS GRAFIK AI</div>
+                     <div class="widget-content" id="analysis-content">
+                        <p>Fitur analisis AI dari proyek sebelumnya akan diintegrasikan di sini.</p>
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="terminal-footer">
+            <div class="input-line">
+                <span class="prompt">></span>
+                <input type="text" id="command-input" placeholder="Ketik perintah (contoh: 'berita', 'harga BTCUSDT', 'analisis')">
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
