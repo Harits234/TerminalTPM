@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPM TERMINAL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #FFA500; /* Amber/Orange */
+            --secondary-text: #808080;
+            --green: #00FF00;
+            --red: #FF0000;
+            --border-color: #222;
+        }
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            text-transform: uppercase;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+
+        .panel {
+            border: 1px solid var(--border-color);
+            background-color: #050505;
+        }
+        
+        .price-up { color: var(--green) !important; animation: flash 0.5s ease-out; }
+        .price-down { color: var(--red) !important; animation: flash 0.5s ease-out; }
+        @keyframes flash {
+            from, to { background-color: transparent; }
+            50% { background-color: var(--border-color); }
+        }
+
+        .ticker-wrap {
+            width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .ticker-move {
+            display: inline-block;
+            animation: ticker 120s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+    </style>
+</head>
+<body class="p-2">
+
+    <div class="h-full flex flex-col gap-2">
+        <!-- Header Utama -->
+        <header class="flex justify-between items-baseline px-1 flex-shrink-0">
+            <h1 class="text-xl font-bold">TPM <span class="text-white">FINANCIAL TERMINAL</span></h1>
+            <div id="clock" class="text-xl font-bold text-white">00:00:00</div>
+        </header>
+        
+        <!-- Main Grid -->
+        <main class="grid grid-cols-12 grid-rows-6 gap-2 h-full overflow-hidden">
+            <!-- Kolom Berita Utama -->
+            <div class="col-span-12 lg:col-span-5 row-span-6 panel flex flex-col">
+                <h2 class="font-bold p-2 border-b border-border-color flex-shrink-0">1 <span class="text-white">| HEADLINE NEWS</span></h2>
+                <div id="news-feed" class="p-2 space-y-3 overflow-y-auto"></div>
+            </div>
+
+            <!-- Kolom Pasar Kanan -->
+            <div class="col-span-12 lg:col-span-7 row-span-6 flex flex-col gap-2">
+                <!-- Panel Saham -->
+                <div class="panel flex flex-col h-1/2">
+                    <h2 class="font-bold p-2 border-b border-border-color flex-shrink-0">2 <span class="text-white">| EQUITIES MONITOR</span></h2>
+                    <div id="stock-market-container" class="p-2 overflow-y-auto"></div>
+                </div>
+                <!-- Panel Bawah (Forex, Komoditas, Kripto) -->
+                <div class="grid grid-cols-3 gap-2 h-1/2">
+                    <div class="panel flex flex-col">
+                        <h2 class="font-bold p-2 border-b border-border-color flex-shrink-0">3 <span class="text-white">| FX</span></h2>
+                        <div id="forex-container" class="p-2 overflow-y-auto"></div>
+                    </div>
+                    <div class="panel flex flex-col">
+                        <h2 class="font-bold p-2 border-b border-border-color flex-shrink-0">4 <span class="text-white">| COMMODS</span></h2>
+                        <div id="commodities-container" class="p-2 overflow-y-auto"></div>
+                    </div>
+                    <div class="panel flex flex-col">
+                        <h2 class="font-bold p-2 border-b border-border-color flex-shrink-0">5 <span class="text-white">| CRYPTO</span></h2>
+                        <div id="crypto-container" class="p-2 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer Ticker -->
+        <footer class="panel p-1 ticker-wrap flex-shrink-0">
+            <div id="footer-ticker-bar" class="ticker-move"></div>
+        </footer>
+    </div>
+
+
+    <script>
+        // --- KONFIGURASI ---
+        const API_KEYS = {
+            NEWS_API: 'fadb8f16daaf4ad3baa0aa710051d8f1',
+            DERIV_APP_ID: '1089',
+            ALPHA_VANTAGE: 'LTE2T8HU4J8VOYA' // Kunci baru jika yg lama habis
+        };
+        
+        // --- Konfigurasi Aset ---
+        const stockConfig = [{ symbol: 'AAPL', name: 'Apple' }, { symbol: 'MSFT', name: 'Microsoft' }, { symbol: 'GOOGL', name: 'Alphabet' }, { symbol: 'TSLA', name: 'Tesla' }, { symbol: 'NVDA', name: 'Nvidia' }];
+        // PERBAIKAN: Menghapus simbol yang tidak valid (frxWTI, crySOLUSD)
+        const derivConfig = {
+            forex: ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY', 'frxAUDUSD'],
+            commodities: ['frxXAUUSD', 'frxXAGUSD'],
+            crypto: ['cryBTCUSD', 'cryETHUSD']
+        };
+        const priceStates = {};
+
+        // --- Elemen DOM ---
+        const clockElement = document.getElementById('clock');
+        const newsFeed = document.getElementById('news-feed');
+        const stockContainer = document.getElementById('stock-market-container');
+        const forexContainer = document.getElementById('forex-container');
+        const commoditiesContainer = document.getElementById('commodities-container');
+        const cryptoContainer = document.getElementById('crypto-container');
+        const footerTicker = document.getElementById('footer-ticker-bar');
+
+        // --- Fungsi Jam ---
+        const updateClock = () => { clockElement.textContent = new Date().toLocaleTimeString('en-GB'); };
+
+        // --- Fungsi Render ---
+        const renderTable = (container, data) => {
+            let table = container.querySelector('table');
+            if (!table) {
+                table = document.createElement('table');
+                table.className = 'w-full';
+                container.innerHTML = '';
+                container.appendChild(table);
+            }
+            let tbody = table.querySelector('tbody');
+            if (!tbody) {
+                tbody = document.createElement('tbody');
+                table.appendChild(tbody);
+            }
+            tbody.innerHTML = data;
+        };
+        
+        const renderNewsItem = (article) => `<div class="border-b border-border-color pb-2"><h3 class="font-bold text-white">${article.title}</h3><p class="text-secondary-text">${article.source?.name} - ${new Date(article.publishedAt).toLocaleTimeString('en-GB')}</p></div>`;
+
+        // --- Logika WebSocket Deriv ---
+        function connectDerivWebSocket() {
+            const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${API_KEYS.DERIV_APP_ID}`);
+            
+            ws.onopen = () => {
+                const symbols = [...derivConfig.forex, ...derivConfig.commodities, ...derivConfig.crypto];
+                let i = 0;
+                
+                function subscribeWithDelay() {
+                    if (i < symbols.length) {
+                        const symbol = symbols[i];
+                        ws.send(JSON.stringify({ ticks_history: symbol, end: 'latest', count: 1, subscribe: 1 }));
+                        i++;
+                        setTimeout(subscribeWithDelay, 150); // Jeda 150ms antar permintaan
+                    }
+                }
+                
+                subscribeWithDelay();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // PERBAIKAN: Penanganan error yang lebih baik
+                if (data.error) {
+                    const symbol = data.echo_req?.ticks_history;
+                    if (symbol) {
+                        const row = document.getElementById(symbol);
+                        if (row && data.error.code === 'MarketIsClosed') {
+                             const priceCell = row.cells[1];
+                             priceCell.textContent = "CLOSED";
+                             priceCell.className = 'text-secondary-text';
+                        } else {
+                             console.error(`Deriv Error for ${symbol}:`, data.error.message);
+                        }
+                    }
+                    return; 
+                }
+
+                const tick = data.tick || (data.history && data.history.prices ? { quote: data.history.prices[0], symbol: data.echo_req.ticks_history } : null);
+                if (tick) {
+                    const { symbol, quote } = tick;
+                    const price = parseFloat(quote);
+                    const lastPrice = priceStates[symbol] || 0;
+                    priceStates[symbol] = price;
+
+                    const row = document.getElementById(symbol);
+                    if (row) {
+                        const priceCell = row.cells[1];
+                        const decimals = symbol.includes('JPY') ? 3 : (symbol.includes('WTI') ? 2 : 4);
+                        priceCell.textContent = price.toFixed(decimals);
+                        
+                        priceCell.classList.remove('price-up', 'price-down');
+                        void priceCell.offsetWidth; 
+                        
+                        if (price > lastPrice && lastPrice !== 0) {
+                            priceCell.classList.add('price-up');
+                        } else if (price < lastPrice) {
+                            priceCell.classList.add('price-down');
+                        }
+                    }
+                }
+            };
+            ws.onclose = () => setTimeout(connectDerivWebSocket, 5000);
+            ws.onerror = (err) => console.error('WS Error:', err);
+        }
+
+        // --- Fungsi Pengambilan Data HTTP ---
+        const robustFetch = async (url) => {
+            const proxyUrl = (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+            try {
+                const response = await fetch(proxyUrl(url));
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                const data = await response.json();
+                if (data.Note) throw new Error('API limit');
+                if (data.status === 'error') throw new Error(`API Error: ${data.message}`);
+                return data;
+            } catch (e) {
+                console.error("Fetch Error:", e.message);
+                return null;
+            }
+        };
+        
+        async function fetchStocksAndNews() {
+            // Fetch Saham
+            const stockPromises = stockConfig.map(stock => robustFetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=${API_KEYS.ALPHA_VANTAGE}`));
+            const stockResults = await Promise.all(stockPromises);
+            
+            let stockHtml = '';
+            let footerTickerHtml = '';
+
+            stockResults.forEach((data, index) => {
+                const quote = data ? data['Global Quote'] : null;
+                const symbol = stockConfig[index].symbol;
+                if (quote && quote['05. price']) {
+                    const price = parseFloat(quote['05. price']);
+                    const change = parseFloat(quote['09. change']);
+                    const changePercent = parseFloat(quote['10. change percent'].replace('%',''));
+                    const isUp = change >= 0;
+                    const color = isUp ? 'text-green' : 'text-red';
+                    const sign = isUp ? '+' : '';
+                    
+                    stockHtml += `<tr><td>${symbol}</td><td class="text-white">${price.toFixed(2)}</td><td class="${color}">${sign}${change.toFixed(2)}</td><td class="${color}">${sign}${changePercent.toFixed(2)}%</td></tr>`;
+                    footerTickerHtml += `<span class="mx-4">${symbol} <span class="${color}">${price.toFixed(2)}</span></span>`;
+                }
+            });
+            renderTable(stockContainer, stockHtml);
+
+            // Fetch Berita
+            const newsData = await robustFetch(`https://newsapi.org/v2/top-headlines?category=business&language=en&pageSize=50&apiKey=${API_KEYS.NEWS_API}`);
+            if (newsData && newsData.articles) {
+                newsFeed.innerHTML = newsData.articles.map(renderNewsItem).join('');
+                const newsTickerHtml = newsData.articles.map(a => a.title).join(' <span class="text-secondary-text">|</span> ');
+                footerTicker.innerHTML = `<div>${footerTickerHtml} <span class="text-secondary-text">|</span> ${newsTickerHtml}</div>`.repeat(2);
+            }
+        }
+
+        // --- Inisialisasi ---
+        function init() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Buat placeholder awal untuk Deriv
+            let derivHtmls = { forex: '', commodities: '', crypto: ''};
+            for (const cat in derivConfig) {
+                derivConfig[cat].forEach(symbol => {
+                    const name = symbol.replace('frx','').replace('cry','');
+                    derivHtmls[cat] += `<tr id="${symbol}"><td>${name}</td><td>-.----</td></tr>`;
+                });
+            }
+            renderTable(forexContainer, derivHtmls.forex);
+            renderTable(commoditiesContainer, derivHtmls.commodities);
+            renderTable(cryptoContainer, derivHtmls.crypto);
+            
+            connectDerivWebSocket();
+            fetchStocksAndNews();
+
+            setInterval(fetchStocksAndNews, 10 * 60 * 1000); // 10 menit
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
