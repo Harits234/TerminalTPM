@@ -65,7 +65,12 @@
     <div class="h-full flex flex-col gap-2">
         <!-- Header Utama -->
         <header class="flex justify-between items-baseline px-1 flex-shrink-0">
-            <h1 class="text-xl font-bold">TPM <span class="text-white">FINANCIAL TERMINAL</span></h1>
+            <!-- PENAMBAHAN: Wrapper untuk judul dan menu baru -->
+            <div class="flex items-baseline gap-6">
+                <h1 class="text-xl font-bold">TPM <span class="text-white">FINANCIAL TERMINAL</span></h1>
+                <!-- PENAMBAHAN: Menu Signal AI yang mengarah ke file kode 2 -->
+                <a href="kode2.html" class="text-lg font-bold text-cyan-400 hover:text-cyan-300 transition-colors duration-200">SIGNAL AI</a>
+            </div>
             <div id="clock" class="text-xl font-bold text-white">00:00:00</div>
         </header>
         
@@ -119,7 +124,6 @@
         
         // --- Konfigurasi Aset ---
         const stockConfig = [{ symbol: 'AAPL', name: 'Apple' }, { symbol: 'MSFT', name: 'Microsoft' }, { symbol: 'GOOGL', name: 'Alphabet' }, { symbol: 'TSLA', name: 'Tesla' }, { symbol: 'NVDA', name: 'Nvidia' }];
-        // PERBAIKAN: Menghapus simbol yang tidak valid (frxWTI, crySOLUSD)
         const derivConfig = {
             forex: ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY', 'frxAUDUSD'],
             commodities: ['frxXAUUSD', 'frxXAGUSD'],
@@ -180,7 +184,6 @@
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                // PERBAIKAN: Penanganan error yang lebih baik
                 if (data.error) {
                     const symbol = data.echo_req?.ticks_history;
                     if (symbol) {
@@ -256,11 +259,13 @@
                     const change = parseFloat(quote['09. change']);
                     const changePercent = parseFloat(quote['10. change percent'].replace('%',''));
                     const isUp = change >= 0;
-                    const color = isUp ? 'text-green' : 'text-red';
+                    const colorClass = isUp ? 'price-up' : 'price-down'; // Menggunakan class CSS yang sudah ada
                     const sign = isUp ? '+' : '';
                     
-                    stockHtml += `<tr><td>${symbol}</td><td class="text-white">${price.toFixed(2)}</td><td class="${color}">${sign}${change.toFixed(2)}</td><td class="${color}">${sign}${changePercent.toFixed(2)}%</td></tr>`;
-                    footerTickerHtml += `<span class="mx-4">${symbol} <span class="${color}">${price.toFixed(2)}</span></span>`;
+                    // Perbaikan: Menggunakan variabel warna dari root CSS
+                    const color = isUp ? 'var(--green)' : 'var(--red)';
+                    stockHtml += `<tr><td>${symbol}</td><td class="text-white">${price.toFixed(2)}</td><td style="color:${color};">${sign}${change.toFixed(2)}</td><td style="color:${color};">${sign}${changePercent.toFixed(2)}%</td></tr>`;
+                    footerTickerHtml += `<span class="mx-4">${symbol} <span style="color:${color};">${price.toFixed(2)}</span></span>`;
                 }
             });
             renderTable(stockContainer, stockHtml);
